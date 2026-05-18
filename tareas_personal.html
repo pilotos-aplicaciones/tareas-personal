@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.10</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.11</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -459,13 +459,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="frow">
       <div class="fg">
         <label class="fl">Grupo</label>
-        <input class="fi" id="f-grupo" placeholder="Escribe o elige..." list="grupos-list" autocomplete="off" oninput="onGrupoChange()" onchange="onGrupoChange()">
-        <datalist id="grupos-list"></datalist>
+        <select class="fsel" id="f-grupo" onchange="onGrupoChange()">
+          <option value="">Sin grupo</option>
+        </select>
+        <input class="fi" id="f-grupo-nuevo" placeholder="Nuevo grupo..." autocomplete="off" style="margin-top:5px;display:none">
       </div>
       <div class="fg">
         <label class="fl">Subgrupo</label>
-        <input class="fi" id="f-subgrupo" placeholder="Escribe o elige..." list="subgrupos-list" autocomplete="off">
-        <datalist id="subgrupos-list"></datalist>
+        <select class="fsel" id="f-subgrupo" onchange="onSubgrupoChange()">
+          <option value="">Sin subgrupo</option>
+        </select>
+        <input class="fi" id="f-subgrupo-nuevo" placeholder="Nuevo subgrupo..." autocomplete="off" style="margin-top:5px;display:none">
       </div>
     </div>
     <div class="fg"><label class="fl">Responsable</label><select class="fsel" id="f-resp"><option value="">Sin asignar</option></select></div>
@@ -910,11 +914,20 @@ function openModal(task){
   const sel=document.getElementById('f-resp');
   const personasOrdenadas=[...data.personas].sort((a,b)=>a.localeCompare(b));
   sel.innerHTML='<option value="">Sin asignar</option>'+personasOrdenadas.map(p=>`<option${task?.responsable===p?' selected':''}>${esc(p)}</option>`).join('');
-  // Datalists con grupos existentes
+  // Cargar select de grupos
   const grupos=[...new Set(data.tasks.map(t=>t.grupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  document.getElementById('grupos-list').innerHTML=grupos.map(g=>`<option value="${esc(g)}">`).join('');
-  // Subgrupos del grupo seleccionado (sin limpiar el subgrupo actual)
-  updateSubgruposList();
+  const grupoActualModal=task?.grupo||'';
+  const selGrupo=document.getElementById('f-grupo');
+  selGrupo.innerHTML='<option value="">Sin grupo</option>'+grupos.map(g=>`<option value="${esc(g)}"${g===grupoActualModal?' selected':''}>${esc(g)}</option>`).join('');
+  // Opción "Nuevo grupo..."
+  selGrupo.innerHTML+='<option value="__nuevo__">+ Nuevo grupo...</option>';
+  // Mostrar input nuevo si el grupo actual no está en la lista
+  const inputGrupoNuevo=document.getElementById('f-grupo-nuevo');
+  if(grupoActualModal && !grupos.includes(grupoActualModal)){
+    inputGrupoNuevo.value=grupoActualModal; inputGrupoNuevo.style.display='block';
+  } else { inputGrupoNuevo.value=''; inputGrupoNuevo.style.display='none'; }
+  // Cargar select de subgrupos del grupo actual
+  updateSubgruposList(grupoActualModal, task?.subgrupo||'');
   // Subtareas
   tempSubtareas=JSON.parse(JSON.stringify(task?.subtareas||[]));
   renderSubtareasList();
@@ -925,26 +938,53 @@ function openModal(task){
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); editId=null; tempSubtareas=[]; }
 function setPrio(p){ selPrio=p; document.querySelectorAll('.segbtn').forEach(b=>b.classList.remove('sa','sm','sb')); const btns=document.querySelectorAll('.segbtn'); if(p==='Alta')btns[0].classList.add('sa'); else if(p==='Media')btns[1].classList.add('sm'); else btns[2].classList.add('sb'); }
 
+function getGrupoModal(){
+  const sel=document.getElementById('f-grupo');
+  if(sel.value==='__nuevo__') return document.getElementById('f-grupo-nuevo').value.trim()||null;
+  return sel.value||null;
+}
+function getSubgrupoModal(){
+  const sel=document.getElementById('f-subgrupo');
+  if(sel.value==='__nuevo__') return document.getElementById('f-subgrupo-nuevo').value.trim()||null;
+  return sel.value||null;
+}
 function saveTask(){
   const titulo=document.getElementById('f-titulo').value.trim();
   if(!titulo){ document.getElementById('f-titulo').focus(); return; }
-  const t={ id:editId||uid(), titulo, grupo:document.getElementById('f-grupo').value.trim()||null, subgrupo:document.getElementById('f-subgrupo').value.trim()||null, responsable:document.getElementById('f-resp').value||null, inicio:document.getElementById('f-inicio').value||null, limite:document.getElementById('f-limite').value||null, prioridad:selPrio, estado:document.getElementById('f-estado').value, notas:document.getElementById('f-notas').value.trim()||null, subtareas:tempSubtareas, starred:editId?(data.tasks.find(x=>x.id===editId)?.starred||false):false, creado:editId?(data.tasks.find(x=>x.id===editId)?.creado||today()):today() };
+  const t={ id:editId||uid(), titulo, grupo:getGrupoModal(), subgrupo:getSubgrupoModal(), responsable:document.getElementById('f-resp').value||null, inicio:document.getElementById('f-inicio').value||null, limite:document.getElementById('f-limite').value||null, prioridad:selPrio, estado:document.getElementById('f-estado').value, notas:document.getElementById('f-notas').value.trim()||null, subtareas:tempSubtareas, starred:editId?(data.tasks.find(x=>x.id===editId)?.starred||false):false, creado:editId?(data.tasks.find(x=>x.id===editId)?.creado||today()):today() };
   if(editId){ const i=data.tasks.findIndex(x=>x.id===editId); data.tasks[i]=t; }else data.tasks.unshift(t);
   saveToDrive(); closeModal(); selected.clear(); updateActionBar(); render(); showToast(editId?'Tarea actualizada':'Tarea creada');
 }
 
 // ══ SUBGRUPOS ASOCIADOS ══════════════════════════════════════════
 function onGrupoChange(){
-  updateSubgruposList();
-  // No limpiar el subgrupo automáticamente — el usuario lo cambia si quiere
+  const val=document.getElementById('f-grupo').value;
+  const inputNuevo=document.getElementById('f-grupo-nuevo');
+  if(val==='__nuevo__'){ inputNuevo.style.display='block'; inputNuevo.focus(); }
+  else { inputNuevo.style.display='none'; inputNuevo.value=''; }
+  updateSubgruposList(val==='__nuevo__'?'':val, '');
+}
+function onSubgrupoChange(){
+  const val=document.getElementById('f-subgrupo').value;
+  const inputNuevo=document.getElementById('f-subgrupo-nuevo');
+  if(val==='__nuevo__'){ inputNuevo.style.display='block'; inputNuevo.focus(); }
+  else { inputNuevo.style.display='none'; inputNuevo.value=''; }
 }
 
-function updateSubgruposList(){
-  const grupoActual=document.getElementById('f-grupo').value.trim();
+function updateSubgruposList(grupoVal, subgrupoVal){
+  const grupoActual=grupoVal!==undefined?grupoVal:getGrupoModal();
+  const subActual=subgrupoVal!==undefined?subgrupoVal:'';
   const subgrupos=grupoActual
     ?[...new Set(data.tasks.filter(t=>t.grupo===grupoActual).map(t=>t.subgrupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b))
     :[...new Set(data.tasks.map(t=>t.subgrupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  document.getElementById('subgrupos-list').innerHTML=subgrupos.map(s=>`<option value="${esc(s)}">`).join('');
+  const selSub=document.getElementById('f-subgrupo');
+  selSub.innerHTML='<option value="">Sin subgrupo</option>'+subgrupos.map(s=>`<option value="${esc(s)}"${s===subActual?' selected':''}>${esc(s)}</option>`).join('');
+  selSub.innerHTML+='<option value="__nuevo__">+ Nuevo subgrupo...</option>';
+  // Si el subgrupo actual no está en la lista, mostrar input
+  const inputSubNuevo=document.getElementById('f-subgrupo-nuevo');
+  if(subActual && !subgrupos.includes(subActual)){
+    inputSubNuevo.value=subActual; inputSubNuevo.style.display='block';
+  } else { inputSubNuevo.value=''; inputSubNuevo.style.display='none'; }
 }
 
 // ══ SUBTAREAS ════════════════════════════════════════════════════
