@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.7</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.8</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -538,6 +538,7 @@ let driveFileId = null;
 let driveFolderId = null;
 let data = { tasks: [], personas: [] };
 let editId = null;
+let _cargandoModal = false;
 let selPrio = 'Alta';
 let selected = new Set();
 let lastSaveTime = 0;
@@ -913,8 +914,8 @@ function openModal(task){
   // Datalists con grupos existentes
   const grupos=[...new Set(data.tasks.map(t=>t.grupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   document.getElementById('grupos-list').innerHTML=grupos.map(g=>`<option value="${esc(g)}">`).join('');
-  // Subgrupos del grupo seleccionado
-  updateSubgruposList();
+  // Subgrupos del grupo seleccionado (sin limpiar el subgrupo actual)
+  _cargandoModal=true; updateSubgruposList(); _cargandoModal=false;
   // Subtareas
   tempSubtareas=JSON.parse(JSON.stringify(task?.subtareas||[]));
   renderSubtareasList();
@@ -936,8 +937,9 @@ function saveTask(){
 // ══ SUBGRUPOS ASOCIADOS ══════════════════════════════════════════
 function onGrupoChange(){
   updateSubgruposList();
-  // Limpiar subgrupo si el grupo cambió
-  document.getElementById('f-subgrupo').value='';
+  // Solo limpiar subgrupo si el usuario está escribiendo el grupo manualmente
+  // (no al cargar el modal en modo edición)
+  if(!_cargandoModal) document.getElementById('f-subgrupo').value='';
 }
 
 function updateSubgruposList(){
@@ -962,7 +964,7 @@ function renderSubtareasList(){
         <button class="sgrp-move-btn" onclick="moveSubtarea(${i},1)" title="Bajar" ${i===tempSubtareas.length-1?'style="opacity:.3;pointer-events:none"':''}>▼</button>
       </div>
       <div class="subtarea-chk ${s.done?'on':''}" onclick="toggleSubtarea(${i})"></div>
-      <span class="subtarea-text ${s.done?'done':''}" style="flex:1;min-width:100px">${esc(s.texto)}</span>
+      <input class="fi subtarea-text-edit ${s.done?'done':''}" value="${esc(s.texto)}" onchange="editarTextoSubtarea(${i},this.value)" style="flex:1;min-width:100px;padding:4px 8px;min-height:28px;font-size:13px;${s.done?'text-decoration:line-through;color:var(--text3)':''}">
       <input type="date" class="fi" value="${s.fecha||''}" onchange="cambiarFechaSubtarea(${i},this.value)" style="font-size:12px;padding:4px 8px;min-height:28px;width:130px;flex-shrink:0;${d==='v'?'border-color:var(--red);color:var(--red)':d==='h'?'border-color:var(--amber);color:var(--amber)':''}">
       <button class="subtarea-del" onclick="deleteSubtarea(${i})">✕</button>
     </div>`;
@@ -975,6 +977,10 @@ function moveSubtarea(i, dir){
   if(i+dir<0||i+dir>=tempSubtareas.length)return;
   const tmp=tempSubtareas[i]; tempSubtareas[i]=tempSubtareas[i+dir]; tempSubtareas[i+dir]=tmp;
   renderSubtareasList();
+}
+function editarTextoSubtarea(i, val){
+  if(val.trim()) tempSubtareas[i].texto=val.trim();
+  else renderSubtareasList(); // si quedó vacío, restaurar texto anterior
 }
 function cambiarFechaSubtarea(i, val){
   tempSubtareas[i].fecha=val||null;
