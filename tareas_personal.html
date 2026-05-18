@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.8</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.10</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -538,7 +538,6 @@ let driveFileId = null;
 let driveFolderId = null;
 let data = { tasks: [], personas: [] };
 let editId = null;
-let _cargandoModal = false;
 let selPrio = 'Alta';
 let selected = new Set();
 let lastSaveTime = 0;
@@ -915,7 +914,7 @@ function openModal(task){
   const grupos=[...new Set(data.tasks.map(t=>t.grupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   document.getElementById('grupos-list').innerHTML=grupos.map(g=>`<option value="${esc(g)}">`).join('');
   // Subgrupos del grupo seleccionado (sin limpiar el subgrupo actual)
-  _cargandoModal=true; updateSubgruposList(); _cargandoModal=false;
+  updateSubgruposList();
   // Subtareas
   tempSubtareas=JSON.parse(JSON.stringify(task?.subtareas||[]));
   renderSubtareasList();
@@ -937,19 +936,14 @@ function saveTask(){
 // ══ SUBGRUPOS ASOCIADOS ══════════════════════════════════════════
 function onGrupoChange(){
   updateSubgruposList();
-  // Solo limpiar subgrupo si el usuario está escribiendo el grupo manualmente
-  // (no al cargar el modal en modo edición)
-  if(!_cargandoModal) document.getElementById('f-subgrupo').value='';
+  // No limpiar el subgrupo automáticamente — el usuario lo cambia si quiere
 }
 
 function updateSubgruposList(){
   const grupoActual=document.getElementById('f-grupo').value.trim();
-  let subgrupos;
-  if(grupoActual){
-    subgrupos=[...new Set(data.tasks.filter(t=>t.grupo===grupoActual).map(t=>t.subgrupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  } else {
-    subgrupos=[...new Set(data.tasks.map(t=>t.subgrupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  }
+  const subgrupos=grupoActual
+    ?[...new Set(data.tasks.filter(t=>t.grupo===grupoActual).map(t=>t.subgrupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b))
+    :[...new Set(data.tasks.map(t=>t.subgrupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   document.getElementById('subgrupos-list').innerHTML=subgrupos.map(s=>`<option value="${esc(s)}">`).join('');
 }
 
