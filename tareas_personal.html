@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.6</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.7</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -618,25 +618,14 @@ async function getOrCreateFolder(){
 }
 
 async function loadFromDrive(){
-  // Verificar conexión antes de hacer nada
   if(!navigator.onLine){
     setSyncStatus('error','⚠ Sin internet — no se puede sincronizar');
     showToast('⚠ Sin conexión a internet');
     return;
   }
   setSyncStatus('syncing','Sincronizando...');
-  // Si hay respaldo local, subirlo primero a Drive
-  const backup = loadLocal();
-  if(backup && backup.data && backup.data.tasks && backup.data.tasks.length > 0){
-    setSyncStatus('syncing','Subiendo respaldo local a Drive...');
-    data = backup.data;
-    await saveToDrive();
-    showToast('✓ Respaldo local subido a Drive');
-    localStorage.removeItem('tp_backup');
-    render();
-    return;
-  }
   try{
+    // SIEMPRE descargar desde Drive primero — es la fuente de verdad
     const fid=await getOrCreateFolder();
     const r=await gapi.client.drive.files.list({q:`name='${DRIVE_FILE_NAME}' and '${fid}' in parents and trashed=false`,fields:'files(id)'});
     if(r.result.files.length>0){
@@ -645,42 +634,50 @@ async function loadFromDrive(){
       const res=await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,{headers:{Authorization:`Bearer ${accessToken}`}});
       data=await res.json();
       if(!data.tasks)data.tasks=[]; if(!data.personas)data.personas=[]; if(!data.grupoOrder)data.grupoOrder=[]; if(!data.sgrupoOrder)data.sgrupoOrder={};
-    } else { data={tasks:[],personas:[]}; }
+    } else {
+      // Archivo no existe en Drive aún
+      const backup = loadLocal();
+      if(backup && backup.data && backup.data.tasks){
+        // Había respaldo local pendiente de subir — subirlo ahora
+        data = backup.data;
+        await saveToDrive(); // saveToDrive borrará el backup al éxito
+        showToast('✓ Respaldo local subido a Drive');
+        render();
+        return;
+      } else {
+        data={tasks:[],personas:[]};
+      }
+    }
     setSyncStatus('ok','Sincronizado');
-    // Limpiar respaldo local ya que Drive tiene la versión correcta
     localStorage.removeItem('tp_backup');
     render();
   }catch(e){
     const esTokenExpirado=e?.status===401||e?.status===403||(e?.message||'').includes('401')||(e?.message||'').includes('token')||(e?.message||'').includes('expired');
-    if(esTokenExpirado){setSyncStatus('error','⚠ Sesión expirada — presiona 🔄 para reiniciar sesión');showToast('⚠ Sesión expirada — reinicia sesión');accessToken=null;sessionStorage.removeItem('gtoken');}
-    else{setSyncStatus('error','⚠ Error de sincronización');}
-    const backup=loadLocal();
-    if(backup&&backup.data&&backup.data.tasks&&backup.data.tasks.length>0){data=backup.data;const fecha=new Date(backup.ts).toLocaleTimeString();if(!esTokenExpirado)setSyncStatus('error',`⚠ Drive no disponible — cargando respaldo local (${fecha})`);showToast('Cargando desde respaldo local');}
-    else{data={tasks:[],personas:[]};}
-    render();
+    if(esTokenExpirado){
+      setSyncStatus('error','⚠ Sesión expirada — presiona 🔄 para reiniciar sesión');
+      showToast('⚠ Sesión expirada — reinicia sesión');
+      accessToken=null;
+      sessionStorage.removeItem('gtoken');
+    } else {
+      setSyncStatus('error','⚠ Error de sincronización');
+      const backup = loadLocal();
+      if(backup && backup.data && backup.data.tasks && backup.data.tasks.length > 0){
+        data = backup.data;
+        const fecha = new Date(backup.ts).toLocaleTimeString();
+        setSyncStatus('error',`⚠ Drive no disponible — mostrando respaldo local (${fecha})`);
+        showToast('Mostrando respaldo local');
+      } else {
+        data={tasks:[],personas:[]};
+      }
+      render();
+    }
   }
-}
-
-function saveLocal(){
-  try{ localStorage.setItem('tp_backup', JSON.stringify({data, ts: Date.now()})); } catch(e){}
-}
-
-function loadLocal(){
-  try{
-    const saved = localStorage.getItem('tp_backup');
-    if(!saved) return null;
-    const parsed = JSON.parse(saved);
-    return parsed;
-  } catch(e){ return null; }
 }
 
 async function saveToDrive(){
   lastSaveTime = Date.now();
-  // Recuperar IDs de sessionStorage si no están en memoria
   if(!driveFolderId) driveFolderId = sessionStorage.getItem('fid_personal');
   if(!driveFileId) driveFileId = sessionStorage.getItem('fileid_personal');
-  // Siempre guardar localmente primero como respaldo
-  saveLocal();
   setSyncStatus('syncing','Guardando...');
   try{
     const fid=await getOrCreateFolder(); const json=JSON.stringify(data,null,2);
@@ -695,12 +692,12 @@ async function saveToDrive(){
       sessionStorage.setItem('fileid_personal', driveFileId);
     }
     setSyncStatus('ok','Guardado ✓'); setTimeout(()=>setSyncStatus('ok','Sincronizado'),2000);
-    // Respaldo diario automático
+    localStorage.removeItem('tp_backup'); // subida exitosa, limpiar respaldo local
     checkDailyBackup();
   }catch(e){
     const esTokenExpirado=e?.status===401||e?.status===403||(e?.message||'').includes('401')||(e?.message||'').includes('token')||(e?.message||'').includes('expired');
     if(esTokenExpirado){setSyncStatus('error','⚠ Sesión expirada — presiona 🔄 para reiniciar sesión');showToast('⚠ Sesión expirada — reinicia sesión');accessToken=null;sessionStorage.removeItem('gtoken');}
-    else{setSyncStatus('error','⚠ Error al guardar — datos respaldados localmente');showToast('⚠ Error Drive — respaldo local guardado');}
+    else{saveLocal();setSyncStatus('error','⚠ Error al guardar — datos respaldados localmente');showToast('⚠ Error Drive — respaldo local guardado');}
   }
 }
 
