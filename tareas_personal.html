@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.11</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.12</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -1033,11 +1033,8 @@ function addSubtarea(){
 
 // ══ GRUPOS ═══════════════════════════════════════════════════════
 function openModalConGrupo(grupo, subgrupo){
-  openModal(null);
-  if(grupo) document.getElementById('f-grupo').value = grupo;
-  if(subgrupo) document.getElementById('f-subgrupo').value = subgrupo;
-  else document.getElementById('f-subgrupo').value = '';
-  updateSubgruposList();
+  // Abrir modal con grupo y subgrupo preseleccionados
+  openModal({grupo: grupo||null, subgrupo: subgrupo||null});
 }
 
 // ── MOVER SUBGRUPOS ──────────────────────────────────────────
