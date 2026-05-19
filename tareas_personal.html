@@ -87,8 +87,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .action-bar-wrap{position:sticky;top:0;z-index:50;flex-shrink:0}
   .search-bar{padding:4px 14px 3px;flex-shrink:0;background:var(--bg)}
   .groups-wrap{padding:0 14px 80px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  .global-col-hdr{display:grid;grid-template-columns:26px 24px 1fr auto;gap:0;padding:6px 12px 6px 22px;background:#EAE6DF;border-bottom:2px solid var(--border);border-top:1px solid var(--border)}
-  .trow{display:grid;grid-template-columns:26px 24px 1fr auto;gap:0;padding:9px 12px 9px 22px;border-bottom:1px solid #F5F3EE;align-items:center;cursor:pointer;transition:background .1s;position:relative}
+  .global-col-hdr{display:grid;grid-template-columns:26px 20px 20px 1fr auto;gap:0;padding:6px 12px 6px 22px;background:#EAE6DF;border-bottom:2px solid var(--border);border-top:1px solid var(--border)}
+  .trow{display:grid;grid-template-columns:26px 20px 20px 1fr auto;gap:0;padding:9px 12px 9px 22px;border-bottom:1px solid #F5F3EE;align-items:center;cursor:pointer;transition:background .1s;position:relative}
   .trow:active{background:#FAFAF8}
   .mob-filter-toggle{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-bottom:1px solid var(--border);padding:11px 14px;cursor:pointer;min-height:var(--touch);flex-shrink:0}
   .mob-filter-panel{background:var(--surface);border-bottom:2px solid var(--accent);display:none;flex-shrink:0;overflow-y:auto;max-height:75vh}
@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.12</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.13</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
