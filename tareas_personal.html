@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.15</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.16</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -306,6 +306,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div class="stat" style="background:var(--accent-l)"><div class="stat-num" id="cnt-prog" style="color:var(--accent)">0</div><div class="stat-lbl" style="color:var(--accent)">Progreso</div></div>
         <div class="stat" style="background:var(--red-l)"><div class="stat-num" id="cnt-venc" style="color:var(--red)">0</div><div class="stat-lbl" style="color:var(--red)">Vencidas</div></div>
         <div class="stat" style="background:var(--green-l)"><div class="stat-num" id="cnt-comp" style="color:var(--green)">0</div><div class="stat-lbl" style="color:var(--green)">Listas</div></div>
+      </div>
+      <div class="fblock">
+        <div class="fblock-title fblock-toggle" onclick="toggleFblock(this)">Primero ⭐ <span class="fblock-arrow">▾</span></div>
+        <div class="fblock-body">
+          <div class="fopt active" id="star-filter-all" onclick="setStar(false,this)"><span>Todas</span></div>
+          <div class="fopt" id="star-filter-on" onclick="setStar(true,this)"><span>⭐ Solo marcadas</span><span class="fcnt" id="cnt-starred">0</span></div>
+        </div>
       </div>
       <div class="fblock">
         <div class="fblock-title fblock-toggle" onclick="toggleFblock(this)">Responsable <span class="fblock-arrow">▾</span></div>
@@ -332,13 +339,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="fopt" onclick="sbFilter('prioridad','Alta',this)"><span>🔴 Alta</span><span class="fcnt" id="cnt-prio-alta">0</span></div>
           <div class="fopt" onclick="sbFilter('prioridad','Media',this)"><span>🟡 Media</span><span class="fcnt" id="cnt-prio-media">0</span></div>
           <div class="fopt" onclick="sbFilter('prioridad','Baja',this)"><span>🟢 Baja</span><span class="fcnt" id="cnt-prio-baja">0</span></div>
-        </div>
-      </div>
-      <div class="fblock">
-        <div class="fblock-title fblock-toggle" onclick="toggleFblock(this)">Primero ⭐ <span class="fblock-arrow">▾</span></div>
-        <div class="fblock-body">
-          <div class="fopt active" id="star-filter-all" onclick="setStar(false,this)"><span>Todas</span></div>
-          <div class="fopt" id="star-filter-on" onclick="setStar(true,this)"><span>⭐ Solo marcadas</span><span class="fcnt" id="cnt-starred">0</span></div>
         </div>
       </div>
       <div class="fblock">
@@ -492,7 +492,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="subtareas-title">Subtareas / Checklist</div>
       <div id="subtareas-list"></div>
       <div class="add-subtarea-row">
-        <input class="fi" id="nueva-subtarea-texto" placeholder="Nueva subtarea...">
+        <input class="fi" id="nueva-subtarea-texto" placeholder="Nueva subtarea..." autocomplete="off">
         <input class="fi" type="date" id="nueva-subtarea-fecha">
         <button class="add-subtarea-btn" onclick="addSubtarea()">+ Agregar</button>
       </div>
@@ -950,6 +950,12 @@ function getSubgrupoModal(){
   return sel.value||null;
 }
 function saveTask(){
+  // Verificar si hay una subtarea escrita pero no agregada
+  const textoSub=document.getElementById('nueva-subtarea-texto').value.trim();
+  if(textoSub){
+    const ok=confirm(`¿Agregar la subtarea "${textoSub}" antes de guardar?`);
+    if(ok){ addSubtarea(); }
+  }
   const titulo=document.getElementById('f-titulo').value.trim();
   if(!titulo){ document.getElementById('f-titulo').focus(); return; }
   const t={ id:editId||uid(), titulo, grupo:getGrupoModal(), subgrupo:getSubgrupoModal(), responsable:document.getElementById('f-resp').value||null, inicio:document.getElementById('f-inicio').value||null, limite:document.getElementById('f-limite').value||null, prioridad:selPrio, estado:document.getElementById('f-estado').value, notas:document.getElementById('f-notas').value.trim()||null, subtareas:tempSubtareas, starred:editId?(data.tasks.find(x=>x.id===editId)?.starred||false):false, creado:editId?(data.tasks.find(x=>x.id===editId)?.creado||today()):today() };
@@ -999,7 +1005,7 @@ function renderSubtareasList(){
         <button class="sgrp-move-btn" onclick="moveSubtarea(${i},1)" title="Bajar" ${i===tempSubtareas.length-1?'style="opacity:.3;pointer-events:none"':''}>▼</button>
       </div>
       <div class="subtarea-chk ${s.done?'on':''}" onclick="toggleSubtarea(${i})"></div>
-      <input class="fi subtarea-text-edit ${s.done?'done':''}" value="${esc(s.texto)}" onchange="editarTextoSubtarea(${i},this.value)" style="flex:1;min-width:100px;padding:4px 8px;min-height:28px;font-size:13px;${s.done?'text-decoration:line-through;color:var(--text3)':''}">
+      <input class="fi subtarea-text-edit ${s.done?'done':''}" value="${esc(s.texto)}" onchange="editarTextoSubtarea(${i},this.value)" style="flex:1;min-width:60px;padding:4px 8px;min-height:28px;font-size:13px;${s.done?'text-decoration:line-through;color:var(--text3)':''}">
       <input type="date" class="fi" value="${s.fecha||''}" onchange="cambiarFechaSubtarea(${i},this.value)" style="font-size:12px;padding:4px 8px;min-height:28px;width:130px;flex-shrink:0;${d==='v'?'border-color:var(--red);color:var(--red)':d==='h'?'border-color:var(--amber);color:var(--amber)':''}">
       <button class="subtarea-del" onclick="deleteSubtarea(${i})">✕</button>
     </div>`;
