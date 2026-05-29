@@ -285,7 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.16</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.17</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -999,15 +999,19 @@ function renderSubtareasList(){
   const el=document.getElementById('subtareas-list');
   el.innerHTML=tempSubtareas.map((s,i)=>{
     const d=ds(s.fecha);
-    return`<div class="subtarea-item" style="flex-wrap:wrap;gap:6px">
-      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
-        <button class="sgrp-move-btn" onclick="moveSubtarea(${i},-1)" title="Subir" ${i===0?'style="opacity:.3;pointer-events:none"':''}>▲</button>
-        <button class="sgrp-move-btn" onclick="moveSubtarea(${i},1)" title="Bajar" ${i===tempSubtareas.length-1?'style="opacity:.3;pointer-events:none"':''}>▼</button>
+    return`<div class="subtarea-item" style="flex-direction:column;gap:4px;padding:6px 8px">
+      <div style="display:flex;align-items:center;gap:6px;width:100%">
+        <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
+          <button class="sgrp-move-btn" onclick="moveSubtarea(${i},-1)" title="Subir" ${i===0?'style="opacity:.3;pointer-events:none"':''}>▲</button>
+          <button class="sgrp-move-btn" onclick="moveSubtarea(${i},1)" title="Bajar" ${i===tempSubtareas.length-1?'style="opacity:.3;pointer-events:none"':''}>▼</button>
+        </div>
+        <div class="subtarea-chk ${s.done?'on':''}" onclick="toggleSubtarea(${i})" style="flex-shrink:0"></div>
+        <input class="fi subtarea-text-edit ${s.done?'done':''}" value="${esc(s.texto)}" onchange="editarTextoSubtarea(${i},this.value)" style="flex:1;min-width:0;padding:4px 8px;min-height:28px;font-size:13px;${s.done?'text-decoration:line-through;color:var(--text3)':''}">
+        <button class="subtarea-del" onclick="deleteSubtarea(${i})" style="flex-shrink:0">✕</button>
       </div>
-      <div class="subtarea-chk ${s.done?'on':''}" onclick="toggleSubtarea(${i})"></div>
-      <input class="fi subtarea-text-edit ${s.done?'done':''}" value="${esc(s.texto)}" onchange="editarTextoSubtarea(${i},this.value)" style="flex:1;min-width:60px;padding:4px 8px;min-height:28px;font-size:13px;${s.done?'text-decoration:line-through;color:var(--text3)':''}">
-      <input type="date" class="fi" value="${s.fecha||''}" onchange="cambiarFechaSubtarea(${i},this.value)" style="font-size:12px;padding:4px 8px;min-height:28px;width:130px;flex-shrink:0;${d==='v'?'border-color:var(--red);color:var(--red)':d==='h'?'border-color:var(--amber);color:var(--amber)':''}">
-      <button class="subtarea-del" onclick="deleteSubtarea(${i})">✕</button>
+      <div style="display:flex;align-items:center;gap:6px;padding-left:38px">
+        <input type="date" class="fi" value="${s.fecha||''}" onchange="cambiarFechaSubtarea(${i},this.value)" style="font-size:12px;padding:4px 8px;min-height:28px;flex:1;${d==='v'?'border-color:var(--red);color:var(--red)':d==='h'?'border-color:var(--amber);color:var(--amber)':''}">
+      </div>
     </div>`;
   }).join('');
 }
