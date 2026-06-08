@@ -27,9 +27,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 
 /* ESTRELLA */
-.star-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:0;line-height:1;opacity:.25;transition:opacity .15s;flex-shrink:0;width:20px;text-align:center;display:inline-block}
-.star-btn:hover{opacity:.6}
-.star-btn.on{opacity:1;color:var(--amber)}
+.star-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:0;line-height:1;color:var(--border);transition:color .15s;flex-shrink:0;width:20px;text-align:center;display:inline-block}
+.star-btn:hover{color:var(--amber)}
+.star-btn.on{color:var(--amber)}
 .fopt.star-active{background:var(--amber-l);color:var(--amber)}
 
 /* LOGIN */
@@ -286,12 +286,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.20</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.21</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
+      <button class="hbtn desk-only" onclick="openPriorizadas()" title="Ver tareas del día" style="font-size:14px">★ Hoy</button>
       <button class="hbtn desk-only" onclick="accessToken?loadFromDrive():signIn()" title="Sincronizar / Reiniciar sesión" style="font-size:14px">🔄</button>
       <button class="hbtn desk-only" onclick="exportarJSON()" title="Descargar respaldo">↓ Respaldo</button>
+      <button class="hbtn mob-only" onclick="openPriorizadas()" style="font-size:15px;padding:0 10px;background:rgba(255,255,255,.15)" title="Tareas del día">★</button>
       <button class="hbtn mob-only" onclick="exportarJSON()" style="font-size:16px;padding:0 10px;background:rgba(255,255,255,.15)" title="Respaldo">↓</button>
       <button class="hbtn mob-only" onclick="openPersonasModal()" style="font-size:18px;padding:0 10px;background:rgba(255,255,255,.15)">👥</button>
       <button class="hbtn mob-only" onclick="loadFromDrive()" style="font-size:16px;padding:0 10px;background:rgba(255,255,255,.15)" title="Sincronizar">🔄</button>
@@ -499,6 +501,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
     </div>
 
+    <div class="fg" style="display:flex;align-items:center;gap:10px;padding:6px 0">
+      <button id="modal-star-btn" onclick="toggleModalStar()" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;color:var(--border);font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;transition:all .15s">
+        <span id="modal-star-icon" style="font-size:16px">★</span>
+        <span id="modal-star-label">Marcar como primero</span>
+      </button>
+    </div>
     <div class="modal-btns"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-p" onclick="saveTask()">Guardar tarea</button></div>
   </div></div>
 </div>
@@ -531,6 +539,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="toast" id="toast"></div>
 
+<!-- MODAL PRIORIZADAS -->
+<div class="overlay" id="prior-overlay" onclick="if(event.target.id==='prior-overlay')closePriorizadas()">
+  <div class="modal" style="max-width:600px"><div class="modal-handle"></div><div class="modal-inner">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div class="modal-title" style="margin-bottom:2px">★ Tareas del día</div>
+        <div style="font-size:11px;color:var(--text3)" id="prior-subtitle">Tareas marcadas como primero</div>
+      </div>
+      <button onclick="closePriorizadas()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px">✕</button>
+    </div>
+    <div id="prior-list" style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto"></div>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="btn btn-s" onclick="closePriorizadas()">Cerrar</button>
+    </div>
+  </div></div>
+</div>
+
 <script>
 // ══ CONFIG ══════════════════════════════════════════════════════
 const GOOGLE_CLIENT_ID = '274406918832-9818l460lkjih793ks2rspmdge59er9h.apps.googleusercontent.com';
@@ -549,6 +574,8 @@ let lastSaveTime = 0;
 let filters = { responsable:'', estado:'', prioridad:'', inicio:'', starred:false };
 let dragId = null;
 let tempSubtareas = [];
+let modalStarred = false;
+let filtersLoaded = false;
 
 // ══ GOOGLE AUTH ══════════════════════════════════════════════════
 function loadScript(src){ return new Promise(r=>{ const s=document.createElement('script'); s.src=src; s.onload=r; document.head.appendChild(s); }); }
@@ -725,8 +752,11 @@ const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','
 document.getElementById('hdr-date').textContent=`${DIAS[N.getDay()]} ${N.getDate()} ${MESES[N.getMonth()]} ${N.getFullYear()}`;
 
 // ══ FILTERS ══════════════════════════════════════════════════════
-function sbFilter(key,val,el){ filters[key]=val; el.closest('.fblock').querySelectorAll('.fopt').forEach(o=>o.classList.remove('active')); el.classList.add('active'); render(); }
-function mobFilter(key,val,el){ filters[key]=val; el.closest('.fp-chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); render(); }
+function saveFilters(){ try{ localStorage.setItem('personal_filters', JSON.stringify(filters)); }catch(e){} }
+function loadFilters(){ try{ const s=localStorage.getItem('personal_filters'); if(s){ const f=JSON.parse(s); filters={...filters,...f}; } }catch(e){} }
+
+function sbFilter(key,val,el){ filters[key]=val; el.closest('.fblock').querySelectorAll('.fopt').forEach(o=>o.classList.remove('active')); el.classList.add('active'); saveFilters(); render(); }
+function mobFilter(key,val,el){ filters[key]=val; el.closest('.fp-chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); saveFilters(); render(); }
 
 function clearAllFilters(){
   filters={responsable:'',estado:'',prioridad:'',inicio:'',starred:false};
@@ -794,9 +824,10 @@ function setStar(val,el){
     document.getElementById('star-filter-all')?.classList.add('active');
     document.getElementById('mob-star-all')?.classList.add('active');
   }
+  saveFilters();
   render();
 }
-function render(){ updateStats(); renderResponsableFilters(); renderGroups(); renderActiveChips(); }
+function render(){ if(!filtersLoaded){ loadFilters(); filtersLoaded=true; } updateStats(); renderResponsableFilters(); renderGroups(); renderActiveChips(); }
 
 function updateStats(){
   const t=data.tasks; const tod=today();
@@ -885,8 +916,8 @@ function renderRow(t,isMob){
   const subs=t.subtareas||[]; const totalSubs=subs.length; const doneSubs=subs.filter(s=>s.done).length;
   const subInfo=totalSubs>0?`<div class="sub-indicator ${doneSubs<totalSubs?'has-pending':''}">☑ ${doneSubs}/${totalSubs} subtareas</div>`:'';
   const mobMeta=[t.responsable?esc(t.responsable):'',t.inicio&&t.limite?`${fmt(t.inicio)} → ${dsl==='v'?'<span style="color:var(--red);font-weight:600">⚠ '+fmt(t.limite)+'</span>':dsl==='h'?'<span style="color:var(--amber);font-weight:600">🔔 '+fmt(t.limite)+'</span>':fmt(t.limite)}`:t.limite?`límite ${dsl==='v'?'<span style="color:var(--red);font-weight:600">⚠ '+fmt(t.limite)+'</span>':dsl==='h'?'<span style="color:var(--amber);font-weight:600">🔔 '+fmt(t.limite)+'</span>':fmt(t.limite)}`:t.inicio?`inicio ${fmt(t.inicio)}`:'',totalSubs>0?`☑ ${doneSubs}/${totalSubs}`:''].filter(Boolean).join(' · ');
-  if(isMob) return`<div class="trow ${p} ${done?'done':''} ${sel?'selected':''}" data-id="${t.id}" onclick="toggleRow(this,event)" style="align-items:${mobMeta?'start':'center'}"><div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;margin-top:${mobMeta?'1px':'0'}"><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',-1)" style="font-size:10px;line-height:1;padding:3px 3px 1px">▲</button><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',1)" style="font-size:10px;line-height:1;padding:1px 3px 3px">▼</button></div><div class="sel-chk ${sel?'on':''}" style="width:13px;height:13px;border-radius:2px;flex-shrink:0;margin-top:${mobMeta?'2px':'0'}" onclick="event.stopPropagation();toggleSel('${t.id}')"></div><button class="star-btn ${t.starred?'on':''}" onclick="toggleStar('${t.id}',event)" style="font-size:12px;flex-shrink:0;margin-top:${mobMeta?'1px':'0'}">☆</button><div style="min-width:0;padding-left:4px"><div class="ttitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${esc(t.titulo)}</div>${mobMeta?`<div style="font-size:9px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mobMeta}</div>`:''}</div></div>`;
-  return`<div class="trow ${p} ${done?'done':''} ${sel?'selected':''}" data-id="${t.id}" onclick="toggleRow(this,event)" ondblclick="openModalById('${t.id}')"><div style="display:flex;flex-direction:column;gap:0;align-items:center;flex-shrink:0"><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',-1)" title="Subir" style="font-size:9px;padding:1px 2px;line-height:1">▲</button><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',1)" title="Bajar" style="font-size:9px;padding:1px 2px;line-height:1">▼</button></div><div class="sel-chk ${sel?'on':''}" onclick="event.stopPropagation();toggleSel('${t.id}')"></div><button class="star-btn ${t.starred?'on':''}" onclick="toggleStar('${t.id}',event)" title="Marcar primero">☆</button><div style="min-width:0;padding-right:8px;overflow:hidden"><div class="ttitle">${esc(t.titulo)}</div>${subInfo}</div><div class="tcell">${t.responsable?esc(t.responsable):'—'}</div><div class="tcell"><span class="badge b-${t.estado==='Pendiente'?'pend':t.estado==='En progreso'?'prog':'comp'}">${t.estado}</span></div><div class="tcell"><span class="badge b-${p}">${t.prioridad}</span></div><div class="tcell date ${dsi}">${t.inicio?fmtFull(t.inicio):'—'}</div><div class="tcell date ${dsl}">${t.limite?(dsl==='v'?'⚠ ':dsl==='h'?'🔔 ':'')+fmtFull(t.limite):'—'}</div></div>`;
+  if(isMob) return`<div class="trow ${p} ${done?'done':''} ${sel?'selected':''}" data-id="${t.id}" onclick="toggleRow(this,event)" style="align-items:${mobMeta?'start':'center'}"><div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;margin-top:${mobMeta?'1px':'0'}"><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',-1)" style="font-size:10px;line-height:1;padding:3px 3px 1px">▲</button><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',1)" style="font-size:10px;line-height:1;padding:1px 3px 3px">▼</button></div><div class="sel-chk ${sel?'on':''}" style="width:13px;height:13px;border-radius:2px;flex-shrink:0;margin-top:${mobMeta?'2px':'0'}" onclick="event.stopPropagation();toggleSel('${t.id}')"></div><button class="star-btn ${t.starred?'on':''}" onclick="toggleStar('${t.id}',event)" style="font-size:12px;flex-shrink:0;margin-top:${mobMeta?'1px':'0'}">★</button><div style="min-width:0;padding-left:4px"><div class="ttitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${esc(t.titulo)}</div>${mobMeta?`<div style="font-size:9px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mobMeta}</div>`:''}</div></div>`;
+  return`<div class="trow ${p} ${done?'done':''} ${sel?'selected':''}" data-id="${t.id}" onclick="toggleRow(this,event)" ondblclick="openModalById('${t.id}')"><div style="display:flex;flex-direction:column;gap:0;align-items:center;flex-shrink:0"><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',-1)" title="Subir" style="font-size:9px;padding:1px 2px;line-height:1">▲</button><button class="sgrp-move-btn" onclick="event.stopPropagation();moveTarea('${t.id}',1)" title="Bajar" style="font-size:9px;padding:1px 2px;line-height:1">▼</button></div><div class="sel-chk ${sel?'on':''}" onclick="event.stopPropagation();toggleSel('${t.id}')"></div><button class="star-btn ${t.starred?'on':''}" onclick="toggleStar('${t.id}',event)" title="Marcar primero">★</button><div style="min-width:0;padding-right:8px;overflow:hidden"><div class="ttitle">${esc(t.titulo)}</div>${subInfo}</div><div class="tcell">${t.responsable?esc(t.responsable):'—'}</div><div class="tcell"><span class="badge b-${t.estado==='Pendiente'?'pend':t.estado==='En progreso'?'prog':'comp'}">${t.estado}</span></div><div class="tcell"><span class="badge b-${p}">${t.prioridad}</span></div><div class="tcell date ${dsi}">${t.inicio?fmtFull(t.inicio):'—'}</div><div class="tcell date ${dsl}">${t.limite?(dsl==='v'?'⚠ ':dsl==='h'?'🔔 ':'')+fmtFull(t.limite):'—'}</div></div>`;
 }
 
 function toggleGrp(h){ const b=h.nextElementSibling; const a=h.querySelector('.grp-arrow'); const o=b.style.display!=='none'; b.style.display=o?'none':'block'; a.classList.toggle('closed',!o); saveCollapsed(); }
@@ -908,6 +939,8 @@ function actionDelete(){ if(!selected.size)return; if(!confirm(`¿Eliminar ${sel
 
 // ══ MODAL TAREA ══════════════════════════════════════════════════
 function openModalById(id){ const t=data.tasks.find(x=>x.id===id); if(t) openModal(t); }
+function toggleModalStar(){ modalStarred=!modalStarred; updateModalStarBtn(); }
+function updateModalStarBtn(){ const btn=document.getElementById('modal-star-btn'); const icon=document.getElementById('modal-star-icon'); const lbl=document.getElementById('modal-star-label'); if(!btn)return; if(modalStarred){ btn.style.borderColor='var(--amber)'; btn.style.background='var(--amber-l)'; btn.style.color='var(--amber)'; icon.style.color='var(--amber)'; lbl.textContent='Marcada como primero'; } else { btn.style.borderColor='var(--border)'; btn.style.background='none'; btn.style.color='var(--text3)'; icon.style.color='var(--border)'; lbl.textContent='Marcar como primero'; } }
 function openModal(task){
   editId=task?task.id:null;
   document.getElementById('modal-title').textContent=task?'Editar tarea':'Nueva tarea';
@@ -938,7 +971,9 @@ function openModal(task){
   updateSubgruposList(grupoActualModal, task?.subgrupo||'');
   // Subtareas
   tempSubtareas=JSON.parse(JSON.stringify(task?.subtareas||[]));
+  modalStarred=task?.starred||false;
   renderSubtareasList();
+  updateModalStarBtn();
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),200);
 }
@@ -965,7 +1000,7 @@ function saveTask(){
   }
   const titulo=document.getElementById('f-titulo').value.trim();
   if(!titulo){ document.getElementById('f-titulo').focus(); return; }
-  const t={ id:editId||uid(), titulo, grupo:getGrupoModal(), subgrupo:getSubgrupoModal(), responsable:document.getElementById('f-resp').value||null, inicio:document.getElementById('f-inicio').value||null, limite:document.getElementById('f-limite').value||null, prioridad:selPrio, estado:document.getElementById('f-estado').value, notas:document.getElementById('f-notas').value.trim()||null, subtareas:tempSubtareas, starred:editId?(data.tasks.find(x=>x.id===editId)?.starred||false):false, creado:editId?(data.tasks.find(x=>x.id===editId)?.creado||today()):today() };
+  const t={ id:editId||uid(), titulo, grupo:getGrupoModal(), subgrupo:getSubgrupoModal(), responsable:document.getElementById('f-resp').value||null, inicio:document.getElementById('f-inicio').value||null, limite:document.getElementById('f-limite').value||null, prioridad:selPrio, estado:document.getElementById('f-estado').value, notas:document.getElementById('f-notas').value.trim()||null, subtareas:tempSubtareas, starred:modalStarred, creado:editId?(data.tasks.find(x=>x.id===editId)?.creado||today()):today() };
   if(editId){ const i=data.tasks.findIndex(x=>x.id===editId); data.tasks[i]=t; }else data.tasks.unshift(t);
   saveToDrive(); closeModal(); selected.clear(); updateActionBar(); render(); showToast(editId?'Tarea actualizada':'Tarea creada');
 }
@@ -1319,6 +1354,37 @@ function dragOver(e){ e.preventDefault(); }
 function drop(e,targetId){ e.preventDefault(); if(!dragId||dragId===targetId)return; const fi=data.tasks.findIndex(t=>t.id===dragId); const ti=data.tasks.findIndex(t=>t.id===targetId); const[m]=data.tasks.splice(fi,1); m.grupo=data.tasks[ti]?.grupo||null; m.subgrupo=data.tasks[ti]?.subgrupo||null; data.tasks.splice(ti,0,m); dragId=null; saveToDrive(); render(); showToast('Tarea movida'); }
 
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+
+function openPriorizadas(){
+  const starred = data.tasks.filter(t=>t.starred && t.estado!=='Completada');
+  const list = document.getElementById('prior-list');
+  const sub = document.getElementById('prior-subtitle');
+  sub.textContent = starred.length===0 ? 'Sin tareas marcadas como primero' : `${starred.length} tarea${starred.length>1?'s':''} marcada${starred.length>1?'s':''} como primero`;
+  if(starred.length===0){
+    list.innerHTML=`<div style="text-align:center;padding:32px 16px;color:var(--text3);font-size:14px">No hay tareas marcadas con ★<br><span style="font-size:12px">Marca tareas con la estrella para verlas aquí</span></div>`;
+  } else {
+    list.innerHTML = starred.map(t=>{
+      const p=(t.prioridad||'media').toLowerCase();
+      const dsl=ds(t.limite);
+      return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;border-left:3px solid var(--${p==='alta'?'red':p==='media'?'amber':'green'})">
+        <span style="font-size:18px;color:var(--amber);flex-shrink:0">★</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.titulo)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+            ${t.responsable?`<span>${esc(t.responsable)}</span>`:''}
+            ${t.limite?`<span class="date ${dsl}">${dsl==='v'?'⚠ ':dsl==='h'?'🔔 ':''}Límite ${fmtFull(t.limite)}</span>`:''}
+            <span class="badge b-${p}" style="font-size:10px">${t.prioridad}</span>
+          </div>
+        </div>
+        <button onclick="toggleStarFromPrior('${t.id}')" title="Quitar de primero" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:2px 6px;border-radius:5px;flex-shrink:0">★</button>
+        <button onclick="openModalById('${t.id}');closePriorizadas()" title="Editar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);flex-shrink:0">✎</button>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('prior-overlay').classList.add('open');
+}
+function closePriorizadas(){ document.getElementById('prior-overlay').classList.remove('open'); }
+function toggleStarFromPrior(id){ const t=data.tasks.find(x=>x.id===id); if(!t)return; t.starred=false; saveToDrive(); openPriorizadas(); render(); }
 window.addEventListener('resize',render);
 
 // Sincronizar al volver a la pestaña o ventana
