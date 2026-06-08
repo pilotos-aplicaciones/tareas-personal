@@ -286,7 +286,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div class="app" id="app">
   <div class="hdr">
-    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.21</span></h1><p id="hdr-date"></p></div>
+    <div class="hdr-left"><h1>Tareas Personal <span style="font-size:10px;font-weight:400;opacity:.6">v3.22</span></h1><p id="hdr-date"></p></div>
     <div class="hdr-right">
       <div id="sync-bar" class="sync-bar desk-only"><div class="sync-dot"></div><span id="sync-text">Listo</span></div>
       <button class="hbtn primary desk-only" onclick="openModal()">+ Nueva tarea</button>
@@ -310,6 +310,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div class="stat" style="background:var(--red-l)"><div class="stat-num" id="cnt-venc" style="color:var(--red)">0</div><div class="stat-lbl" style="color:var(--red)">Vencidas</div></div>
         <div class="stat" style="background:var(--green-l)"><div class="stat-num" id="cnt-comp" style="color:var(--green)">0</div><div class="stat-lbl" style="color:var(--green)">Listas</div></div>
       </div>
+      <button class="clear-filters-btn" onclick="clearAllFilters()">✕ Limpiar todos los filtros</button>
       <div class="fblock">
         <div class="fblock-title fblock-toggle" onclick="toggleFblock(this)">Primero ⭐ <span class="fblock-arrow">▾</span></div>
         <div class="fblock-body">
@@ -368,7 +369,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="fopt" onclick="sbFilter('inicio','no_iniciada',this)"><span>⏳ No iniciadas</span></div>
         </div>
       </div>
-      <button class="clear-filters-btn" onclick="clearAllFilters()">✕ Limpiar todos los filtros</button>
     </div>
 
     <!-- CONTENT -->
@@ -753,7 +753,37 @@ document.getElementById('hdr-date').textContent=`${DIAS[N.getDay()]} ${N.getDate
 
 // ══ FILTERS ══════════════════════════════════════════════════════
 function saveFilters(){ try{ localStorage.setItem('personal_filters', JSON.stringify(filters)); }catch(e){} }
-function loadFilters(){ try{ const s=localStorage.getItem('personal_filters'); if(s){ const f=JSON.parse(s); filters={...filters,...f}; } }catch(e){} }
+function loadFilters(){
+  try{
+    const s=localStorage.getItem('personal_filters');
+    if(s){ const f=JSON.parse(s); filters={...filters,...f}; }
+  }catch(e){}
+  if(filters.starred){
+    document.getElementById('star-filter-all')?.classList.remove('active');
+    document.getElementById('star-filter-on')?.classList.add('active');
+  }
+  if(filters.estado){
+    document.querySelectorAll('.fblock .fopt').forEach(el=>{
+      const fn=el.getAttribute('onclick')||'';
+      if(fn.includes(`sbFilter('estado','${filters.estado}'`)) el.classList.add('active');
+      else if(fn.includes(`sbFilter('estado',`)) el.classList.remove('active');
+    });
+  }
+  if(filters.prioridad){
+    document.querySelectorAll('.fblock .fopt').forEach(el=>{
+      const fn=el.getAttribute('onclick')||'';
+      if(fn.includes(`sbFilter('prioridad','${filters.prioridad}'`)) el.classList.add('active');
+      else if(fn.includes(`sbFilter('prioridad',`)) el.classList.remove('active');
+    });
+  }
+  if(filters.inicio){
+    document.querySelectorAll('.fblock .fopt').forEach(el=>{
+      const fn=el.getAttribute('onclick')||'';
+      if(fn.includes(`sbFilter('inicio','${filters.inicio}'`)) el.classList.add('active');
+      else if(fn.includes(`sbFilter('inicio',`)) el.classList.remove('active');
+    });
+  }
+}
 
 function sbFilter(key,val,el){ filters[key]=val; el.closest('.fblock').querySelectorAll('.fopt').forEach(o=>o.classList.remove('active')); el.classList.add('active'); saveFilters(); render(); }
 function mobFilter(key,val,el){ filters[key]=val; el.closest('.fp-chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); saveFilters(); render(); }
@@ -1356,35 +1386,74 @@ function drop(e,targetId){ e.preventDefault(); if(!dragId||dragId===targetId)ret
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
 
 function openPriorizadas(){
-  const starred = data.tasks.filter(t=>t.starred && t.estado!=='Completada');
-  const list = document.getElementById('prior-list');
-  const sub = document.getElementById('prior-subtitle');
-  sub.textContent = starred.length===0 ? 'Sin tareas marcadas como primero' : `${starred.length} tarea${starred.length>1?'s':''} marcada${starred.length>1?'s':''} como primero`;
-  if(starred.length===0){
-    list.innerHTML=`<div style="text-align:center;padding:32px 16px;color:var(--text3);font-size:14px">No hay tareas marcadas con ★<br><span style="font-size:12px">Marca tareas con la estrella para verlas aquí</span></div>`;
-  } else {
-    list.innerHTML = starred.map(t=>{
-      const p=(t.prioridad||'media').toLowerCase();
-      const dsl=ds(t.limite);
-      return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;border-left:3px solid var(--${p==='alta'?'red':p==='media'?'amber':'green'})">
-        <span style="font-size:18px;color:var(--amber);flex-shrink:0">★</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.titulo)}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-            ${t.responsable?`<span>${esc(t.responsable)}</span>`:''}
-            ${t.limite?`<span class="date ${dsl}">${dsl==='v'?'⚠ ':dsl==='h'?'🔔 ':''}Límite ${fmtFull(t.limite)}</span>`:''}
-            <span class="badge b-${p}" style="font-size:10px">${t.prioridad}</span>
-          </div>
-        </div>
-        <button onclick="toggleStarFromPrior('${t.id}')" title="Quitar de primero" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:2px 6px;border-radius:5px;flex-shrink:0">★</button>
-        <button onclick="openModalById('${t.id}');closePriorizadas()" title="Editar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);flex-shrink:0">✎</button>
-      </div>`;
-    }).join('');
-  }
+  let priorOrder=[];
+  try{ priorOrder=JSON.parse(localStorage.getItem('personal_prior_order')||'[]'); }catch(e){}
+  let starred=data.tasks.filter(t=>t.starred && t.estado!=='Completada');
+  starred.sort((a,b)=>{ const ia=priorOrder.indexOf(a.id); const ib=priorOrder.indexOf(b.id); if(ia===-1&&ib===-1)return 0; if(ia===-1)return 1; if(ib===-1)return -1; return ia-ib; });
+  renderPriorizadas(starred);
   document.getElementById('prior-overlay').classList.add('open');
 }
+function savePriorOrder(){
+  const items=document.querySelectorAll('#prior-list .prior-item');
+  const order=Array.from(items).map(el=>el.dataset.id);
+  try{ localStorage.setItem('personal_prior_order',JSON.stringify(order)); }catch(e){}
+}
+function movePriorItem(id,dir){
+  const list=document.getElementById('prior-list');
+  const items=Array.from(list.querySelectorAll('.prior-item'));
+  const idx=items.findIndex(el=>el.dataset.id===id);
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=items.length) return;
+  if(dir===-1) list.insertBefore(items[idx],items[newIdx]);
+  else list.insertBefore(items[newIdx],items[idx]);
+  savePriorOrder();
+}
+function renderPriorizadas(starred){
+  const list=document.getElementById('prior-list');
+  const sub=document.getElementById('prior-subtitle');
+  sub.textContent=starred.length===0?'Sin tareas marcadas como primero':`${starred.length} tarea${starred.length>1?'s':''} marcada${starred.length>1?'s':''} como primero`;
+  if(starred.length===0){
+    list.innerHTML=`<div style="text-align:center;padding:32px 16px;color:var(--text3);font-size:14px">No hay tareas marcadas con ★<br><span style="font-size:12px">Marca tareas con la estrella para verlas aquí</span></div>`;
+    return;
+  }
+  list.innerHTML=starred.map((t,i)=>{
+    const p=(t.prioridad||'media').toLowerCase();
+    const dsl=ds(t.limite);
+    const borderColor=p==='alta'?'var(--red)':p==='media'?'var(--amber)':'var(--green)';
+    const grupoCrumb=[t.grupo,t.subgrupo].filter(Boolean).join(' › ');
+    return`<div class="prior-item" data-id="${t.id}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;border-left:3px solid ${borderColor}">
+      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
+        <button onclick="movePriorItem('${t.id}',-1)" style="background:none;border:none;cursor:pointer;font-size:11px;padding:1px 4px;color:var(--text3);line-height:1">▲</button>
+        <button onclick="movePriorItem('${t.id}',1)" style="background:none;border:none;cursor:pointer;font-size:11px;padding:1px 4px;color:var(--text3);line-height:1">▼</button>
+      </div>
+      <span style="font-size:16px;color:var(--amber);flex-shrink:0">★</span>
+      <div style="flex:1;min-width:0">
+        ${grupoCrumb?`<div style="font-size:10px;color:var(--text3);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(grupoCrumb)}</div>`:''}
+        <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.titulo)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+          ${t.responsable?`<span>${esc(t.responsable)}</span>`:''}
+          ${t.limite?`<span class="date ${dsl}">${dsl==='v'?'⚠ ':dsl==='h'?'🔔 ':''}Límite ${fmtFull(t.limite)}</span>`:''}
+          <span class="badge b-${p}" style="font-size:10px">${t.prioridad}</span>
+        </div>
+      </div>
+      <button onclick="toggleStarFromPrior('${t.id}')" title="Quitar de primero" style="background:none;border:none;cursor:pointer;color:var(--amber);font-size:16px;padding:2px 4px;flex-shrink:0">★</button>
+      <button onclick="openModalById('${t.id}');closePriorizadas()" title="Editar" style="background:none;border:1px solid var(--border);cursor:pointer;color:var(--text3);font-size:12px;padding:4px 8px;border-radius:5px;flex-shrink:0">✎</button>
+    </div>`;
+  }).join('');
+}
 function closePriorizadas(){ document.getElementById('prior-overlay').classList.remove('open'); }
-function toggleStarFromPrior(id){ const t=data.tasks.find(x=>x.id===id); if(!t)return; t.starred=false; saveToDrive(); openPriorizadas(); render(); }
+function toggleStarFromPrior(id){
+  const t=data.tasks.find(x=>x.id===id);
+  if(!t) return;
+  t.starred=false;
+  try{ let order=JSON.parse(localStorage.getItem('personal_prior_order')||'[]'); order=order.filter(x=>x!==id); localStorage.setItem('personal_prior_order',JSON.stringify(order)); }catch(e){}
+  saveToDrive();
+  let priorOrder=[]; try{ priorOrder=JSON.parse(localStorage.getItem('personal_prior_order')||'[]'); }catch(e){}
+  let starred=data.tasks.filter(x=>x.starred && x.estado!=='Completada');
+  starred.sort((a,b)=>{ const ia=priorOrder.indexOf(a.id); const ib=priorOrder.indexOf(b.id); if(ia===-1&&ib===-1)return 0; if(ia===-1)return 1; if(ib===-1)return -1; return ia-ib; });
+  renderPriorizadas(starred);
+  render();
+}
 window.addEventListener('resize',render);
 
 // Sincronizar al volver a la pestaña o ventana
